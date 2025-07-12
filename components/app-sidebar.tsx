@@ -1,7 +1,7 @@
 "use client"
 
 import type * as React from "react"
-import { Command, Frame, LifeBuoy, Map, PieChart, Send, Home, MessageSquare, Users, TrendingUp } from "lucide-react"
+import { Command, Frame, LifeBuoy, Map, PieChart, Send, Home, MessageSquare, Users, Bell } from "lucide-react"
 
 import {
   Sidebar,
@@ -64,12 +64,7 @@ const data = {
           url: "/dashboard/community/leaderboard",
         },
       ],
-    },
-    {
-      title: "Analytics",
-      url: "/dashboard/analytics",
-      icon: TrendingUp,
-    },
+    }
   ],
   navSecondary: [
     {
