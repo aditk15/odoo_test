@@ -90,18 +90,18 @@ export default function HomePage() {
     try {
       setError(null)
 
-    if (!isSupabaseConfigured()) {
-      console.log("Using mock data - Supabase not configured")
-      setQuestions(mockQuestions)
-      return
-    }
+      if (!isSupabaseConfigured()) {
+        console.log("Using mock data - Supabase not configured")
+        setQuestions(mockQuestions)
+        return
+      }
 
-    const supabase = createClient()
-    if (!supabase) {
-      console.log("Supabase client not available, using mock data")
-      setQuestions(mockQuestions)
-      return
-    }
+      const supabase = createClient()
+      if (!supabase) {
+        console.log("Supabase client not available, using mock data")
+        setQuestions(mockQuestions)
+        return
+      }
 
       // Fetch questions from Supabase with correct schema
       const { data, error } = await supabase
@@ -126,26 +126,22 @@ export default function HomePage() {
         throw error
       }
 
-    if (!data) {
-      console.log("No data returned from Supabase, using mock data")
-      setQuestions(mockQuestions)
-      return
-    }
+      if (!data) {
+        console.log("No data returned from Supabase, using mock data")
+        setQuestions(mockQuestions)
+        return
+      }
 
-    // Transform the data to include upvotes
-    const formattedQuestions: Question[] = data.map((question: any) => {
-      const upvotes = question.votes?.filter((vote: any) => vote.vote_type === "up").length || 0
-      const downvotes = question.votes?.filter((vote: any) => vote.vote_type === "down").length || 0
-
-      return {
+      // Transform the data to match our interface
+      const formattedQuestions: Question[] = data.map((question: any) => ({
         id: question.id,
         title: question.title,
         content: question.content,
         author: question.profiles?.username || question.profiles?.email || "Anonymous",
         author_id: question.author_id,
         created_at: question.created_at,
-        upvotes: upvotes - downvotes, // Net upvotes
-        answers: 0, // Implement answer counting later
+        upvotes: 0, // We can implement voting later
+        answers: 0, // We can implement answer counting later
         views: question.view_count || 0,
         tags: question.tags || [], // tags are stored as array in questions table
       }))
@@ -172,16 +168,16 @@ export default function HomePage() {
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
 
     if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return `${diffInHours}h ago`
+    if (diffInHours < 24) return ${diffInHours}h ago
 
     const diffInDays = Math.floor(diffInHours / 24)
-    if (diffInDays < 7) return `${diffInDays}d ago`
+    if (diffInDays < 7) return ${diffInDays}d ago
 
     const diffInWeeks = Math.floor(diffInDays / 7)
-    if (diffInWeeks < 4) return `${diffInWeeks}w ago`
+    if (diffInWeeks < 4) return ${diffInWeeks}w ago
 
     const diffInMonths = Math.floor(diffInDays / 30)
-    return `${diffInMonths}mo ago`
+    return ${diffInMonths}mo ago
   }
 
   if (loading) {
@@ -325,7 +321,7 @@ export default function HomePage() {
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${question.author}`} />
+                            <AvatarImage src={https://api.dicebear.com/7.x/initials/svg?seed=${question.author}} />
                             <AvatarFallback>
                               <User className="h-3 w-3" />
                             </AvatarFallback>
