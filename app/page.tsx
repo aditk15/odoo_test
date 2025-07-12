@@ -168,16 +168,16 @@ export default function HomePage() {
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
 
     if (diffInHours < 1) return "Just now"
-    if (diffInHours < 24) return ${diffInHours}h ago
+    if (diffInHours < 24) return `${diffInHours}h ago`
 
     const diffInDays = Math.floor(diffInHours / 24)
-    if (diffInDays < 7) return ${diffInDays}d ago
+    if (diffInDays < 7) return `${diffInDays}d ago`
 
     const diffInWeeks = Math.floor(diffInDays / 7)
-    if (diffInWeeks < 4) return ${diffInWeeks}w ago
+    if (diffInWeeks < 4) return `${diffInWeeks}w ago`
 
     const diffInMonths = Math.floor(diffInDays / 30)
-    return ${diffInMonths}mo ago
+    return `${diffInMonths}mo ago`
   }
 
   if (loading) {
@@ -321,7 +321,7 @@ export default function HomePage() {
                       <div className="flex items-center justify-between text-sm text-gray-500">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-6 w-6">
-                            <AvatarImage src={https://api.dicebear.com/7.x/initials/svg?seed=${question.author}} />
+                            <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${question.author}`} />
                             <AvatarFallback>
                               <User className="h-3 w-3" />
                             </AvatarFallback>
@@ -423,7 +423,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 StackIt. All rights reserved.</p>
+            <p>© 2024 StackIt. All rights reserved.</p>
           </div>
         </div>
       </footer>
