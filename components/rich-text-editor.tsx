@@ -103,14 +103,14 @@ export function RichTextEditor({ value, onChange, placeholder }: RichTextEditorP
           </Button>
 
           {showEmojiPicker && (
-            <div className="absolute top-full left-0 mt-1 p-2 bg-white border rounded-lg shadow-lg z-10">
-              <div className="grid grid-cols-6 gap-1">
+            <div className="absolute top-full left-0 mt-1 p-2 bg-white border rounded-lg shadow-lg z-10 min-w-[200px]">
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
                 {emojis.map((emoji) => (
                   <button
                     key={emoji}
                     type="button"
                     onClick={() => insertEmoji(emoji)}
-                    className="p-1 hover:bg-gray-100 rounded text-lg"
+                    className="p-1 hover:bg-gray-100 rounded text-xl"
                   >
                     {emoji}
                   </button>
