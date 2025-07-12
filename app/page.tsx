@@ -86,24 +86,25 @@ export default function HomePage() {
         return
       }
 
-      // Fetch questions from Supabase
+      // Fetch questions from Supabase with correct schema
       const { data, error } = await supabase
         .from("questions")
         .select(`
           *,
           profiles:author_id (
-            username
-          ),
-          question_tags (
-            tags (
-              name
-            )
+            username,
+            email
           )
         `)
         .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("Supabase error:", error)
+        console.error("Supabase error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        })
         throw error
       }
 
@@ -118,13 +119,13 @@ export default function HomePage() {
         id: question.id,
         title: question.title,
         content: question.content,
-        author: question.profiles?.username || "Anonymous",
+        author: question.profiles?.username || question.profiles?.email || "Anonymous",
         author_id: question.author_id,
         created_at: question.created_at,
-        upvotes: question.upvotes || 0,
-        answers: question.answer_count || 0,
-        views: question.views || 0,
-        tags: question.question_tags?.map((qt: any) => qt.tags?.name).filter(Boolean) || []
+        upvotes: 0, // We can implement voting later
+        answers: 0, // We can implement answer counting later
+        views: question.view_count || 0,
+        tags: question.tags || [] // tags are stored as array in questions table
       }))
 
       setQuestions(formattedQuestions)

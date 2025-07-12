@@ -1,23 +1,23 @@
-import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
-export function createClient() {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn("Supabase environment variables not configured. Using mock data.")
-    return null as any
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+// Create the main client
+export const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+
+// Export a function that creates a configured client
+export const createClient = () => {
+  if (!supabaseUrl || !supabaseKey) {
+    console.error("Supabase URL or key is missing");
+    return null;
   }
-  
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
-  })
-}
+  return createSupabaseClient(supabaseUrl, supabaseKey);
+};
 
-export function isSupabaseConfigured() {
-  return !!(supabaseUrl && supabaseAnonKey)
-}
+// Helper function to check if Supabase is properly configured
+export const isSupabaseConfigured = () => {
+  return !!(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+};
+        
