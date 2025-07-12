@@ -2,23 +2,24 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { X, ArrowLeft } from "lucide-react"
+import { X, ArrowLeft, Sparkles, TrendingUp, Hash } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase"
 import { useAuth } from "@/hooks/use-auth"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { isSupabaseConfigured } from "@/lib/supabase"
+import { getTagSuggestions, extractTagsFromContent } from "@/lib/tag-suggestions"
 
 const POPULAR_TAGS = [
   "React",
-  "JavaScript",
+  "JavaScript", 
   "TypeScript",
   "Next.js",
   "Node.js",
@@ -39,6 +40,45 @@ export default function AskQuestionPage() {
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [tagSuggestions, setTagSuggestions] = useState<{
+    contentBased: string[]
+    trending: string[]
+    all: string[]
+  }>({ contentBased: [], trending: [], all: [] })
+  const [loadingTags, setLoadingTags] = useState(false)
+
+  // Get content-based suggestions in real-time
+  const contentBasedTags = useMemo(() => {
+    if (!title.trim() && !content.trim()) return []
+    return extractTagsFromContent(title, content)
+  }, [title, content])
+
+  // Load trending tags on component mount
+  useEffect(() => {
+    const loadTagSuggestions = async () => {
+      setLoadingTags(true)
+      try {
+        const suggestions = await getTagSuggestions(title, content)
+        setTagSuggestions(suggestions)
+      } catch (error) {
+        console.error('Error loading tag suggestions:', error)
+      } finally {
+        setLoadingTags(false)
+      }
+    }
+
+    loadTagSuggestions()
+  }, []) // Load once on mount
+
+  // Update content-based suggestions when title/content changes
+  useEffect(() => {
+    if (title.trim() || content.trim()) {
+      setTagSuggestions(prev => ({
+        ...prev,
+        contentBased: contentBasedTags
+      }))
+    }
+  }, [contentBasedTags])
 
   const addTag = (tag: string) => {
     const trimmedTag = tag.trim()
@@ -65,6 +105,10 @@ export default function AskQuestionPage() {
     setSubmitting(true)
     try {
       const supabase = createClient()
+      if (!supabase) {
+        throw new Error("Unable to create Supabase client")
+      }
+      
       const { data, error } = await supabase
         .from("questions")
         .insert({
@@ -161,7 +205,7 @@ export default function AskQuestionPage() {
                   ))}
                 </div>
 
-                <div className="flex gap-2 mb-3">
+                <div className="flex gap-2 mb-4">
                   <Input
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
@@ -184,20 +228,76 @@ export default function AskQuestionPage() {
                   </Button>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <span className="text-sm text-gray-600">Popular tags:</span>
-                  {POPULAR_TAGS.map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => addTag(tag)}
-                      disabled={tags.includes(tag) || tags.length >= 5}
-                      className="text-xs text-orange-600 hover:text-orange-700 disabled:text-gray-400 disabled:cursor-not-allowed"
-                    >
-                      {tag}
-                    </button>
-                  ))}
-                </div>
+                {/* Content-based suggestions */}
+                {tagSuggestions.contentBased.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-blue-500" />
+                      <span className="text-sm font-medium text-gray-700">Suggested for your content:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {tagSuggestions.contentBased.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => addTag(tag)}
+                          disabled={tags.includes(tag) || tags.length >= 5}
+                          className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed border border-blue-200"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Trending tags */}
+                {tagSuggestions.trending.length > 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-orange-500" />
+                      <span className="text-sm font-medium text-gray-700">
+                        Trending tags {loadingTags && "(loading...)"}:
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {tagSuggestions.trending.slice(0, 10).map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => addTag(tag)}
+                          disabled={tags.includes(tag) || tags.length >= 5}
+                          className="text-xs px-2 py-1 bg-orange-50 text-orange-700 rounded-md hover:bg-orange-100 disabled:text-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed border border-orange-200"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Fallback to static popular tags if no dynamic suggestions */}
+                {tagSuggestions.trending.length === 0 && tagSuggestions.contentBased.length === 0 && (
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Hash className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-700">Popular tags:</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {POPULAR_TAGS.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => addTag(tag)}
+                          disabled={tags.includes(tag) || tags.length >= 5}
+                          className="text-xs px-2 py-1 bg-gray-50 text-gray-700 rounded-md hover:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed border border-gray-200"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-4">

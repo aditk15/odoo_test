@@ -68,76 +68,82 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [error, setError] = useState<string | null>(null)
 
-  const fetchQuestions = async () => {
-    try {
-      setLoading(true)
-      setError(null)
+const fetchQuestions = async () => {
+  try {
+    setLoading(true)
+    setError(null)
 
-      if (!isSupabaseConfigured()) {
-        console.log("Using mock data - Supabase not configured")
-        setQuestions(mockQuestions)
-        return
-      }
+    if (!isSupabaseConfigured()) {
+      console.log("Using mock data - Supabase not configured")
+      setQuestions(mockQuestions)
+      return
+    }
 
-      const supabase = createClient()
-      if (!supabase) {
-        console.log("Supabase client not available, using mock data")
-        setQuestions(mockQuestions)
-        return
-      }
+    const supabase = createClient()
+    if (!supabase) {
+      console.log("Supabase client not available, using mock data")
+      setQuestions(mockQuestions)
+      return
+    }
 
-      // Fetch questions from Supabase with correct schema
-      const { data, error } = await supabase
-        .from("questions")
-        .select(`
-          *,
-          profiles:author_id (
-            username,
-            email
-          )
-        `)
-        .order("created_at", { ascending: false })
+    // Fetch questions with aggregated upvotes
+    const { data, error } = await supabase
+      .from("questions")
+      .select(`
+        *,
+        profiles:author_id (
+          username,
+          email
+        ),
+        votes!left(question_id, vote_type)
+      `)
+      .order("created_at", { ascending: false })
 
-      if (error) {
-        console.error("Supabase error details:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        })
-        throw error
-      }
+    if (error) {
+      console.error("Supabase error details:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
+      throw error
+    }
 
-      if (!data) {
-        console.log("No data returned from Supabase, using mock data")
-        setQuestions(mockQuestions)
-        return
-      }
+    if (!data) {
+      console.log("No data returned from Supabase, using mock data")
+      setQuestions(mockQuestions)
+      return
+    }
 
-      // Transform the data to match our interface
-      const formattedQuestions: Question[] = data.map((question: any) => ({
+    // Transform the data to include upvotes
+    const formattedQuestions: Question[] = data.map((question: any) => {
+      const upvotes = question.votes?.filter((vote: any) => vote.vote_type === "up").length || 0
+      const downvotes = question.votes?.filter((vote: any) => vote.vote_type === "down").length || 0
+
+      return {
         id: question.id,
         title: question.title,
         content: question.content,
         author: question.profiles?.username || question.profiles?.email || "Anonymous",
         author_id: question.author_id,
         created_at: question.created_at,
-        upvotes: 0, // We can implement voting later
-        answers: 0, // We can implement answer counting later
+        upvotes: upvotes - downvotes, // Net upvotes
+        answers: 0, // Implement answer counting later
         views: question.view_count || 0,
-        tags: question.tags || [] // tags are stored as array in questions table
-      }))
+        tags: question.tags || [] // Tags are stored as an array in the questions table
+      }
+    })
 
-      setQuestions(formattedQuestions)
-    } catch (error: any) {
-      console.error("Error fetching questions:", error)
-      setError("Failed to load questions. Using sample data.")
-      // Fallback to mock data on error
-      setQuestions(mockQuestions)
-    } finally {
-      setLoading(false)
-    }
+    setQuestions(formattedQuestions)
+  } catch (error: any) {
+    console.error("Error fetching questions:", error)
+    setError("Failed to load questions. Using sample data.")
+    // Fallback to mock data on error
+    setQuestions(mockQuestions)
+  } finally {
+    setLoading(false)
   }
+}
 
   useEffect(() => {
     fetchQuestions()
