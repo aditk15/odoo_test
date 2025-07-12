@@ -1,194 +1,206 @@
 "use client"
-
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Bell } from "lucide-react"
-import { createClient } from "@/lib/supabase"
+import { Input } from "@/components/ui/input"
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Bell, Search, User, LogOut } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
-import { isSupabaseConfigured } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase"
 
-interface Notification {
-  id: string
-  message: string
-  created_at: string
-  is_read: boolean
-  type: string
-}
+// Mock notifications
+const mockNotifications = [
+  {
+    id: 1,
+    message: "Your question received a new answer",
+    created_at: new Date().toISOString(),
+    read: false
+  },
+  {
+    id: 2,
+    message: "Someone upvoted your answer",
+    created_at: new Date().toISOString(),
+    read: false
+  }
+]
 
-export function NotificationBell() {
-  const { user } = useAuth()
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [showDropdown, setShowDropdown] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+export function Navbar() {
+  const { user, signOut } = useAuth()
+  const router = useRouter()
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [notificationCount, setNotificationCount] = useState(0)
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (user) {
+  // Use useCallback to prevent function recreation on every render
+  const fetchNotifications = useCallback(async () => {
+    if (!user || loading) return
+
+    try {
+      setLoading(true)
+
       if (!isSupabaseConfigured()) {
-        // Mock notifications
-        const mockNotifications = [
-          {
-            id: "1",
-            message: "jane_smith answered your question: How to implement authentication in Next.js?",
-            created_at: new Date().toISOString(),
-            is_read: false,
-            type: "answer",
-          },
-          {
-            id: "2",
-            message: "dev_expert commented on your answer",
-            created_at: new Date(Date.now() - 3600000).toISOString(),
-            is_read: true,
-            type: "comment",
-          },
-        ]
         setNotifications(mockNotifications)
-        setUnreadCount(mockNotifications.filter((n) => !n.is_read).length)
+        setNotificationCount(mockNotifications.filter(n => !n.read).length)
         return
       }
 
-      fetchNotifications()
-
-      // Set up real-time subscription
       const supabase = createClient()
-      const subscription = supabase
-        .channel("notifications")
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            fetchNotifications()
-          },
-        )
-        .subscribe()
-
-      return () => {
-        subscription.unsubscribe()
+      if (!supabase) {
+        setNotifications(mockNotifications)
+        setNotificationCount(mockNotifications.filter(n => !n.read).length)
+        return
       }
-    }
-  }, [user])
 
-  const fetchNotifications = async () => {
-    if (!user || !isSupabaseConfigured()) return
-
-    try {
-      const supabase = createClient()
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
         .eq("user_id", user.id)
+        .eq("read", false)
         .order("created_at", { ascending: false })
         .limit(10)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error fetching notifications:", error)
+        // Fallback to mock data on error
+        setNotifications(mockNotifications)
+        setNotificationCount(mockNotifications.filter(n => !n.read).length)
+        return
+      }
 
       setNotifications(data || [])
-      setUnreadCount(data?.filter((n) => !n.is_read).length || 0)
+      setNotificationCount(data?.length || 0)
     } catch (error) {
       console.error("Error fetching notifications:", error)
+      // Fallback to mock data
+      setNotifications(mockNotifications)
+      setNotificationCount(mockNotifications.filter(n => !n.read).length)
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [user, loading]) // Add loading to dependencies to prevent infinite loop
 
-  const markAsRead = async (notificationId: string) => {
-    if (!isSupabaseConfigured()) {
-      // Mock mark as read
-      setNotifications(notifications.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n)))
-      setUnreadCount((prev) => Math.max(0, prev - 1))
-      return
-    }
-
-    try {
-      const supabase = createClient()
-      await supabase.from("notifications").update({ is_read: true }).eq("id", notificationId)
-
+  // Only fetch notifications when user changes, not on every render
+  useEffect(() => {
+    if (user) {
       fetchNotifications()
-    } catch (error) {
-      console.error("Error marking notification as read:", error)
+    } else {
+      setNotifications([])
+      setNotificationCount(0)
     }
-  }
+  }, [user]) // Remove fetchNotifications from dependencies to prevent infinite loop
 
-  const markAllAsRead = async () => {
-    if (!isSupabaseConfigured()) {
-      // Mock mark all as read
-      setNotifications(notifications.map((n) => ({ ...n, is_read: true })))
-      setUnreadCount(0)
-      return
-    }
-
-    try {
-      const supabase = createClient()
-      await supabase.from("notifications").update({ is_read: true }).eq("user_id", user?.id).eq("is_read", false)
-
-      fetchNotifications()
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error)
-    }
+  const handleSignOut = async () => {
+    await signOut()
+    router.push("/")
   }
 
   return (
-    <div className="relative">
-      <Button variant="ghost" size="sm" onClick={() => setShowDropdown(!showDropdown)} className="relative">
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center text-xs p-0"
-          >
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </Badge>
-        )}
-      </Button>
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link href="/" className="flex items-center">
+            <span className="text-2xl font-bold text-orange-600">StackIt</span>
+          </Link>
 
-      {showDropdown && (
-        <div className="absolute right-0 top-full mt-2 w-80 z-50">
-          <Card className="shadow-lg">
-            <CardContent className="p-0">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="font-semibold">Notifications</h3>
-                {unreadCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs">
-                    Mark all read
+          {/* Search Bar */}
+          <div className="flex-1 max-w-lg mx-8">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <Input
+                placeholder="Search questions..."
+                className="pl-10 w-full"
+              />
+            </div>
+          </div>
+
+          {/* Right Side */}
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <>
+                {/* Notifications */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="relative">
+                      <Bell className="h-5 w-5" />
+                      {notificationCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {notificationCount > 9 ? "9+" : notificationCount}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80">
+                    {notifications.length === 0 ? (
+                      <DropdownMenuItem disabled>
+                        No new notifications
+                      </DropdownMenuItem>
+                    ) : (
+                      notifications.map((notification) => (
+                        <DropdownMenuItem key={notification.id}>
+                          <div className="flex flex-col space-y-1">
+                            <p className="text-sm">{notification.message}</p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(notification.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* User Menu */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage
+                          src={`https://api.dicebear.com/7.x/initials/svg?seed=${user.email}`}
+                          alt={user.email || "User"}
+                        />
+                        <AvatarFallback>
+                          <User className="h-4 w-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href="/profile">Profile</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings">Settings</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Link href="/auth/login">
+                  <Button variant="ghost">Sign In</Button>
+                </Link>
+                <Link href="/auth/register">
+                  <Button className="bg-orange-600 hover:bg-orange-700">
+                    Sign Up
                   </Button>
-                )}
+                </Link>
               </div>
-
-              <div className="max-h-96 overflow-y-auto">
-                {notifications.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">No notifications yet</div>
-                ) : (
-                  notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`p-4 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 ${
-                        !notification.is_read ? "bg-blue-50" : ""
-                      }`}
-                      onClick={() => {
-                        if (!notification.is_read) {
-                          markAsRead(notification.id)
-                        }
-                      }}
-                    >
-                      <p className="text-sm">{notification.message}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(notification.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Overlay to close dropdown */}
-      {showDropdown && <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />}
-    </div>
+      </div>
+    </nav>
   )
 }

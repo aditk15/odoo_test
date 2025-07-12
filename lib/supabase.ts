@@ -8,8 +8,14 @@ export function createClient() {
     console.warn("Supabase environment variables not configured. Using mock data.")
     return null as any
   }
-
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey)
+  
+  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    }
+  })
 }
 
 export function isSupabaseConfigured() {
