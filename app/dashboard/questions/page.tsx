@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -92,14 +93,28 @@ interface Question {
 }
 
 export default function QuestionsPage() {
+  const searchParams = useSearchParams()
+  const tagFromUrl = searchParams.get('tag')
+  
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [selectedTag, setSelectedTag] = useState<string | null>(tagFromUrl)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Update selected tag when URL changes
+    setSelectedTag(tagFromUrl)
+  }, [tagFromUrl])
 
   useEffect(() => {
     fetchQuestions()
   }, [])
+
+  const clearTagFilter = () => {
+    setSelectedTag(null)
+    window.history.pushState({}, '', '/dashboard/questions')
+  }
 
   const fetchQuestions = async () => {
     try {
@@ -172,12 +187,17 @@ export default function QuestionsPage() {
     }
   }
 
-  const filteredQuestions = questions.filter(
-    (question) =>
-      question.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const filteredQuestions = questions.filter((question) => {
+    const matchesSearch = question.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       question.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      question.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase())),
-  )
+      question.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    const matchesTag = !selectedTag || question.tags.some(tag => 
+      tag.toLowerCase() === selectedTag.toLowerCase()
+    )
+    
+    return matchesSearch && matchesTag
+  })
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
@@ -241,20 +261,36 @@ export default function QuestionsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Search questions, tags, or users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      <div className="space-y-4">
+        <div className="flex gap-4">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Input
+              placeholder="Search questions, tags, or users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button variant="outline">
+            <Filter className="mr-2 h-4 w-4" />
+            Filter
+          </Button>
         </div>
-        <Button variant="outline">
-          <Filter className="mr-2 h-4 w-4" />
-          Filter
-        </Button>
+        
+        {/* Selected Tag Filter */}
+        {selectedTag && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Filtering by tag:</span>
+            <Badge 
+              variant="default" 
+              className="bg-orange-100 text-orange-800 cursor-pointer"
+              onClick={clearTagFilter}
+            >
+              {selectedTag} ×
+            </Badge>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -302,7 +338,15 @@ export default function QuestionsPage() {
                     {/* Tags */}
                     <div className="flex flex-wrap gap-2 mb-3">
                       {question.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
+                        <Badge 
+                          key={tag} 
+                          variant="secondary" 
+                          className="text-xs cursor-pointer hover:bg-orange-100 hover:text-orange-700 transition-colors"
+                          onClick={() => {
+                            setSelectedTag(tag)
+                            window.history.pushState({}, '', `/dashboard/questions?tag=${encodeURIComponent(tag)}`)
+                          }}
+                        >
                           {tag}
                         </Badge>
                       ))}

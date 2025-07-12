@@ -1,13 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MessageSquare, Users, Award, Plus, ArrowRight, Calendar, Eye } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { MessageSquare, Users, Award, Plus, ArrowRight, Calendar, Eye, Search } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { useTagFilter } from "@/hooks/use-tag-filter"
+import { useRouter } from "next/navigation"
+import { createClient, isSupabaseConfigured } from "@/lib/supabase"
 
 // Mock data for dashboard
 const mockStats = {
@@ -58,9 +62,85 @@ const mockTopContributors = [
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const router = useRouter()
+  const { selectedTags, handleTagSelect, clearTagFilters } = useTagFilter()
   const [stats, setStats] = useState(mockStats)
   const [recentQuestions, setRecentQuestions] = useState(mockRecentQuestions)
   const [topContributors, setTopContributors] = useState(mockTopContributors)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [allQuestions, setAllQuestions] = useState(mockRecentQuestions)
+
+  useEffect(() => {
+    if (!user) {
+      router.push("/")
+    } else {
+      fetchQuestions()
+    }
+  }, [user, router])
+
+  const fetchQuestions = async () => {
+    try {
+      if (!isSupabaseConfigured()) {
+        setAllQuestions(mockRecentQuestions)
+        return
+      }
+
+      const supabase = createClient()
+      if (!supabase) {
+        setAllQuestions(mockRecentQuestions)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("questions")
+        .select(`
+          *,
+          profiles:author_id (
+            username,
+            email
+          )
+        `)
+        .order("created_at", { ascending: false })
+        .limit(20)
+
+      if (error) {
+        console.error("Error fetching questions:", error)
+        setAllQuestions(mockRecentQuestions)
+        return
+      }
+
+      if (data) {
+        const formattedQuestions = data.map((question: any) => ({
+          id: question.id,
+          title: question.title,
+          author: question.profiles?.username || question.profiles?.email || "Anonymous",
+          tags: question.tags || [],
+          answers: 0, // TODO: Count actual answers
+          views: question.view_count || 0,
+          created_at: question.created_at,
+        }))
+        setAllQuestions(formattedQuestions)
+        setRecentQuestions(formattedQuestions.slice(0, 3))
+      }
+    } catch (error) {
+      console.error("Error fetching questions:", error)
+      setAllQuestions(mockRecentQuestions)
+    }
+  }
+
+  const filteredQuestions = allQuestions.filter((question) => {
+    const matchesSearch = question.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         question.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    
+    const matchesTags = selectedTags.length === 0 || 
+                       question.tags.some(tag => selectedTags.includes(tag))
+    
+    return matchesSearch && matchesTags
+  })
+
+  if (!user) {
+    return null
+  }
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
@@ -91,6 +171,44 @@ export default function DashboardPage() {
             Ask Question
           </Button>
         </Link>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Input
+            placeholder="Search questions..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        
+        {/* Selected Tag Filters */}
+        {selectedTags.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <span className="text-sm text-gray-600">Filtering by:</span>
+            {selectedTags.map((tag) => (
+              <Badge 
+                key={tag} 
+                variant="default" 
+                className="bg-orange-100 text-orange-800 cursor-pointer"
+                onClick={() => handleTagSelect(tag)}
+              >
+                {tag} ×
+              </Badge>
+            ))}
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearTagFilters}
+              className="text-xs h-6"
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -158,7 +276,7 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentQuestions.map((question) => (
+            {(selectedTags.length > 0 || searchTerm ? filteredQuestions.slice(0, 3) : recentQuestions).map((question) => (
               <div
                 key={question.id}
                 className="flex items-start space-x-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -184,7 +302,12 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {question.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">
+                      <Badge 
+                        key={tag} 
+                        variant="secondary" 
+                        className="text-xs cursor-pointer hover:bg-orange-100"
+                        onClick={() => handleTagSelect(tag)}
+                      >
                         {tag}
                       </Badge>
                     ))}

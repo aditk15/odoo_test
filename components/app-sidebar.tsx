@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/use-auth"
 import { NavMain } from "./nav-main"
-import { NavProjects } from "./nav-projects"
+import { NavTrendingTags } from "./nav-trending-tags"
 import { NavSecondary } from "./nav-secondary"
 import { NavUser } from "./nav-user"
 
@@ -134,7 +134,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavTrendingTags />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
