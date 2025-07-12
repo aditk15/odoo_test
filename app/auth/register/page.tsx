@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { CheckCircle, AlertCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase"
 import { isSupabaseConfigured } from "@/lib/supabase"
@@ -24,7 +26,7 @@ export default function RegisterPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (!authLoading && user) {
-      router.push("/")
+      router.push("/dashboard")
     }
   }, [user, authLoading, router])
 
@@ -35,7 +37,7 @@ export default function RegisterPage() {
     setSuccess("")
 
     if (!isSupabaseConfigured()) {
-      router.push("/")
+      router.push("/dashboard")
       return
     }
 
@@ -60,11 +62,11 @@ export default function RegisterPage() {
       // Check if user needs email confirmation
       if (data.user && !data.session) {
         setSuccess(
-          "Registration successful! Please check your email and click the confirmation link before signing in."
+          "Registration successful! Please check your email and click the confirmation link before signing in.",
         )
       } else if (data.session) {
         // User is automatically logged in
-        router.push("/")
+        router.push("/dashboard")
       }
     } catch (error: any) {
       console.error("Registration error:", error)
@@ -77,8 +79,8 @@ export default function RegisterPage() {
   // Show loading while checking auth state
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div>Loading...</div>
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
       </div>
     )
   }
@@ -89,75 +91,98 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-orange-600">StackIt</CardTitle>
-          <p className="text-gray-600">Create your account</p>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleRegister} className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-                {error}
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white">
+      <div className="container mx-auto px-4 py-8">
+        <Link href="/" className="inline-flex items-center text-orange-600 hover:text-orange-700 mb-8">
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Home
+        </Link>
+
+        <div className="max-w-md mx-auto">
+          <Card className="shadow-lg">
+            <CardHeader className="text-center space-y-2">
+              <div className="mx-auto w-12 h-12 bg-orange-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">S</span>
               </div>
-            )}
-            
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
-                {success}
+              <CardTitle className="text-2xl font-bold text-gray-900">Join StackIt</CardTitle>
+              <p className="text-gray-600">Create your account to start asking and answering questions</p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <form onSubmit={handleRegister} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {success && (
+                  <Alert className="border-green-200 bg-green-50">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-800">{success}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="Create a password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    disabled={loading}
+                    className="h-11"
+                  />
+                  <p className="text-xs text-gray-500">Must be at least 6 characters long</p>
+                </div>
+
+                <Button type="submit" className="w-full h-11 bg-orange-600 hover:bg-orange-700" disabled={loading}>
+                  {loading ? "Creating account..." : "Create Account"}
+                </Button>
+              </form>
+
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Already have an account?{" "}
+                  <Link href="/auth/login" className="text-orange-600 hover:text-orange-700 font-medium">
+                    Sign in
+                  </Link>
+                </p>
               </div>
-            )}
-
-            <div>
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                disabled={loading}
-              />
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create Account"}
-            </Button>
-
-            <p className="text-center text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link href="/auth/login" className="text-orange-600 hover:underline">
-                Sign in
-              </Link>
-            </p>
-          </form>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   )
 }
